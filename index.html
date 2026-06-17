@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>ASL Translate</title>
+    <link rel="stylesheet" href="./styles.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.all.min.js"></script>
+    <script src="./config.js"></script>
+</head>
+<body>
+    <main class="app-shell">
+        <section class="camera-stage">
+            <video id="camera-video" autoplay playsinline muted></video>
+            <canvas id="overlay-canvas"></canvas>
+            <div class="top-overlay">
+                <div>
+                    <div class="label">ASL Translate</div>
+                    <div id="connection-status" class="status-text">Starting camera...</div>
+                </div>
+                <button id="btn-settings" class="icon-btn" type="button" aria-label="Settings">API</button>
+            </div>
+            <div class="prediction-overlay">
+                <div>
+                    <div class="label">Current</div>
+                    <div id="current-prediction" class="prediction">Reading...</div>
+                </div>
+                <div class="confidence-pill" id="confidence-pill">--</div>
+            </div>
+        </section>
+
+        <section class="text-panel">
+            <div class="text-header">
+                <div>
+                    <div class="label">Recognized Text</div>
+                    <div id="signal-status" class="status-text">No hand detected.</div>
+                </div>
+                <button id="btn-guide" class="soft-btn" type="button">Guide</button>
+            </div>
+            <textarea id="output-text" placeholder="Stable letters appear here."></textarea>
+
+            <div class="suggestion-row" id="word-suggestions">
+                <span class="hint">Word suggestions appear here.</span>
+            </div>
+
+            <div class="action-grid">
+                <button id="btn-space" type="button">Space</button>
+                <button id="btn-backspace" type="button">Back</button>
+                <button id="btn-sentence" type="button">Check</button>
+                <button id="btn-clear" class="danger-btn" type="button">Clear</button>
+            </div>
+
+            <div class="sentence-card">
+                <div class="row-title">
+                    <span>Sentence Assist</span>
+                    <button id="btn-apply-safe" class="soft-btn" type="button">Apply Safe</button>
+                </div>
+                <div id="sentence-suggestions" class="sentence-list">
+                    <span class="hint">Check a phrase when it is ready.</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="settings-panel hidden" id="settings-panel">
+            <div class="row-title">
+                <span>Backend</span>
+                <button id="btn-close-settings" class="soft-btn" type="button">Close</button>
+            </div>
+            <label class="field-label" for="api-base-input">API base URL</label>
+            <input id="api-base-input" type="url" placeholder="https://your-python-backend.example.com">
+            <div class="setting-actions">
+                <button id="btn-save-api" type="button">Save</button>
+                <button id="btn-test-api" class="soft-btn" type="button">Test</button>
+            </div>
+            <label class="toggle-row">
+                <input id="toggle-skeleton" type="checkbox" checked>
+                Draw hand skeleton
+            </label>
+            <label class="toggle-row">
+                <input id="toggle-auto-append" type="checkbox" checked>
+                Append stable letters
+            </label>
+        </section>
+
+        <section class="guide-sheet hidden" id="guide-sheet">
+            <div class="row-title">
+                <span>ASL Letter Guide</span>
+                <button id="btn-close-guide" class="soft-btn" type="button">Close</button>
+            </div>
+            <img src="./aslguide.jpg" alt="ASL alphabet hand sign guide">
+        </section>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+</body>
+</html>
