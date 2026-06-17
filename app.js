@@ -16,6 +16,9 @@ const MAX_FRAMES = 30;
 const MIN_FRAMES = 8;
 const PREDICT_INTERVAL_MS = 260;
 const NO_HAND_RESET_FRAMES = 4;
+const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+const WEAK_SET = ["U", "V", "R", "T", "A", "N", "M", "S", "K"];
+const MOTION_SET = ["J", "Z"];
 
 const els = {
     video: document.getElementById("camera-video"),
@@ -28,9 +31,31 @@ const els = {
     textPanelToggle: document.getElementById("btn-text-panel-toggle"),
     compactOutput: document.getElementById("compact-output-text"),
     textPanelToggleAction: document.getElementById("text-panel-toggle-action"),
+    translatorTab: document.getElementById("translator-tab"),
+    gameTab: document.getElementById("game-tab"),
+    translatorView: document.getElementById("translator-view"),
+    gameView: document.getElementById("game-view"),
     output: document.getElementById("output-text"),
     wordSuggestions: document.getElementById("word-suggestions"),
     sentenceSuggestions: document.getElementById("sentence-suggestions"),
+    gameMode: document.getElementById("game-mode"),
+    roundCount: document.getElementById("round-count"),
+    targetLetter: document.getElementById("target-letter"),
+    roundValue: document.getElementById("round-value"),
+    timerValue: document.getElementById("timer-value"),
+    modeValue: document.getElementById("mode-value"),
+    lastTryValue: document.getElementById("last-try-value"),
+    scoreValue: document.getElementById("score-value"),
+    correctValue: document.getElementById("correct-value"),
+    accuracyValue: document.getElementById("accuracy-value"),
+    streakValue: document.getElementById("streak-value"),
+    attemptsValue: document.getElementById("attempts-value"),
+    bestTimeValue: document.getElementById("best-time-value"),
+    targetClosenessValue: document.getElementById("target-closeness-value"),
+    targetClosenessMeter: document.getElementById("target-closeness-meter"),
+    gameTopPredictions: document.getElementById("game-top-predictions"),
+    gameResult: document.getElementById("game-result"),
+    historyList: document.getElementById("history-list"),
     settingsPanel: document.getElementById("settings-panel"),
     guideSheet: document.getElementById("guide-sheet"),
     apiBaseInput: document.getElementById("api-base-input"),
@@ -39,6 +64,7 @@ const els = {
 };
 
 const state = {
+    appMode: "translator",
     apiBase: loadApiBase(),
     handLandmarker: null,
     frames: [],
@@ -52,6 +78,22 @@ const state = {
     lastCommitted: "",
     cooldownUntil: 0,
     latestSentenceAssist: null,
+    game: {
+        active: false,
+        targets: [],
+        index: 0,
+        score: 0,
+        correct: 0,
+        attempts: 0,
+        streak: 0,
+        bestTime: null,
+        history: [],
+        roundLocked: false,
+        roundStartedAt: 0,
+        gameStartedAt: 0,
+        lastHandledLetter: "",
+        lastHandledAt: 0,
+    },
 };
 
 const ctx = els.canvas.getContext("2d");
@@ -76,6 +118,8 @@ function wireControls() {
     els.textPanelToggle.addEventListener("click", () => {
         setTextPanelCollapsed(!isTextPanelCollapsed(), true);
     });
+    els.translatorTab.addEventListener("click", () => setAppMode("translator"));
+    els.gameTab.addEventListener("click", () => setAppMode("game"));
 
     document.getElementById("btn-settings").addEventListener("click", () => {
         els.settingsPanel.classList.remove("hidden");
@@ -120,6 +164,15 @@ function wireControls() {
         scheduleWordAssist();
         state.latestSentenceAssist = null;
     });
+
+    document.getElementById("btn-start-game").addEventListener("click", startGame);
+    document.getElementById("btn-end-game").addEventListener("click", () => finishGame("manual"));
+    document.getElementById("btn-retry").addEventListener("click", retryRound);
+    document.getElementById("btn-skip").addEventListener("click", skipRound);
+    els.gameMode.addEventListener("change", updateGameUi);
+    els.roundCount.addEventListener("change", updateGameUi);
+    window.setInterval(updateGameTimer, 100);
+    updateGameUi();
 }
 
 async function startApp() {
@@ -268,10 +321,10 @@ function handlePrediction(result) {
     const display = result.raw_label || result.display || "Reading...";
     els.prediction.textContent = display;
     els.confidence.textContent = result.confidence ? `${Math.round(result.confidence * 100)}%` : "--";
-        const provider = result.provider ? ` | ${result.provider}` : "";
-        els.signal.textContent = `${result.frame_count || state.frames.length} frames | ${result.mode_hint || "auto"}${provider}`;
+    const provider = result.provider ? ` | ${result.provider}` : "";
+    els.signal.textContent = `${result.frame_count || state.frames.length} frames | ${result.mode_hint || "auto"}${provider}`;
 
-    if (!result.accepted || !result.label || !els.autoAppendToggle.checked) return;
+    if (!result.accepted || !result.label) return;
 
     if (result.label === state.candidate) {
         state.candidateCount += 1;
@@ -282,10 +335,14 @@ function handlePrediction(result) {
 
     const commitCount = result.label === "X" ? 4 : 2;
     if (state.candidateCount < commitCount || Date.now() < state.cooldownUntil) return;
-    if (result.label === state.lastCommitted) return;
 
-    appendText(result.label);
-    state.lastCommitted = result.label;
+    if (state.appMode === "game") {
+        handleGameLetter(result.label, result);
+    } else if (els.autoAppendToggle.checked && result.label !== state.lastCommitted) {
+        appendText(result.label);
+        state.lastCommitted = result.label;
+    }
+
     state.cooldownUntil = Date.now() + 950;
 }
 
@@ -326,8 +383,309 @@ function setTextPanelCollapsed(collapsed, persist) {
 }
 
 function updateCompactOutput() {
+    if (state.appMode === "game") {
+        const game = state.game;
+        const target = currentTarget();
+        els.compactOutput.textContent = game.active
+            ? `Target ${target} | Score ${game.score}`
+            : "Sign Sprint ready.";
+        return;
+    }
     const value = els.output.value.replace(/\s+/g, " ").trim();
     els.compactOutput.textContent = value || "Stable letters appear here.";
+}
+
+function setAppMode(mode) {
+    state.appMode = mode;
+    const gameModeActive = mode === "game";
+    if (!gameModeActive && state.game.active) {
+        finishGame("mode_switch");
+    }
+    els.translatorTab.classList.toggle("active", !gameModeActive);
+    els.gameTab.classList.toggle("active", gameModeActive);
+    els.translatorView.classList.toggle("active", !gameModeActive);
+    els.gameView.classList.toggle("active", gameModeActive);
+    resetRecognitionBuffer();
+    if (gameModeActive) {
+        setTextPanelCollapsed(false, true);
+    }
+    updateCompactOutput();
+    updateGameUi();
+}
+
+function resetRecognitionBuffer() {
+    state.frames = [];
+    state.normalizedFrames = [];
+    state.candidate = "";
+    state.candidateCount = 0;
+    state.lastCommitted = "";
+    state.cooldownUntil = 0;
+}
+
+function shuffle(array) {
+    const copy = [...array];
+    for (let index = copy.length - 1; index > 0; index -= 1) {
+        const targetIndex = Math.floor(Math.random() * (index + 1));
+        [copy[index], copy[targetIndex]] = [copy[targetIndex], copy[index]];
+    }
+    return copy;
+}
+
+function buildTargets(mode, count) {
+    if (mode === "alphabet") return LETTERS.slice(0, count);
+    const source = mode === "weak" ? WEAK_SET : mode === "motion" ? MOTION_SET : LETTERS;
+    const targets = [];
+    while (targets.length < count) {
+        for (const letter of shuffle(source)) {
+            if (targets.length >= count) break;
+            if (targets[targets.length - 1] === letter && source.length > 1) continue;
+            targets.push(letter);
+        }
+    }
+    return targets;
+}
+
+function currentTarget() {
+    return state.game.targets[state.game.index] || "";
+}
+
+function updateGameUi() {
+    const game = state.game;
+    const target = currentTarget();
+    els.targetLetter.textContent = game.active ? target : "--";
+    els.roundValue.textContent = `${game.active ? Math.min(game.index + 1, game.targets.length) : 0}/${game.targets.length}`;
+    els.scoreValue.textContent = game.score;
+    els.correctValue.textContent = game.correct;
+    els.attemptsValue.textContent = game.attempts;
+    els.streakValue.textContent = game.streak;
+    els.accuracyValue.textContent = game.attempts ? `${Math.round((game.correct / game.attempts) * 100)}%` : "--";
+    els.bestTimeValue.textContent = game.bestTime === null ? "--" : `${game.bestTime.toFixed(1)}s`;
+    els.modeValue.textContent = game.active ? els.gameMode.options[els.gameMode.selectedIndex].text : "Idle";
+    updateCompactOutput();
+}
+
+function updateGameTimer() {
+    if (!state.game.active || !state.game.roundStartedAt) {
+        els.timerValue.textContent = "0.0s";
+        return;
+    }
+    els.timerValue.textContent = `${((performance.now() - state.game.roundStartedAt) / 1000).toFixed(1)}s`;
+}
+
+function setGameResult(text, status = "") {
+    els.gameResult.textContent = text;
+    els.gameResult.classList.toggle("correct", status === "correct");
+    els.gameResult.classList.toggle("wrong", status === "wrong");
+}
+
+function clamp01(value) {
+    if (!Number.isFinite(value)) return 0;
+    return Math.max(0, Math.min(1, value));
+}
+
+function formatPercent(value) {
+    return `${Math.round(clamp01(value) * 100)}%`;
+}
+
+function topPredictionsFromResult(result) {
+    return Array.isArray(result.top_predictions) ? result.top_predictions : [];
+}
+
+function getTargetConfidence(target, predicted, result) {
+    const topMatch = topPredictionsFromResult(result).find((item) => item.label === target);
+    if (topMatch && typeof topMatch.confidence === "number") return clamp01(topMatch.confidence);
+    if (target === predicted) return clamp01(result.confidence || 0);
+    return 0;
+}
+
+function getTargetRank(target, result) {
+    const topIndex = topPredictionsFromResult(result).findIndex((item) => item.label === target);
+    return topIndex >= 0 ? topIndex + 1 : null;
+}
+
+function buildGuessFeedback(target, predicted, result) {
+    const predictedConfidence = clamp01(result.confidence || 0);
+    const targetConfidence = getTargetConfidence(target, predicted, result);
+    return {
+        targetConfidence,
+        confidenceGap: Math.max(0, predictedConfidence - targetConfidence),
+        targetRank: getTargetRank(target, result),
+        topPredictions: topPredictionsFromResult(result),
+    };
+}
+
+function resetGuessFeedback() {
+    els.targetClosenessValue.textContent = "--";
+    els.targetClosenessMeter.style.width = "0%";
+    els.targetClosenessMeter.classList.remove("close", "on-target");
+    els.gameTopPredictions.textContent = "Top guesses appear after each attempt.";
+}
+
+function updateGuessFeedback(target, feedback, correct) {
+    const closeness = feedback.targetConfidence;
+    const rankText = feedback.targetRank ? `rank #${feedback.targetRank}` : "not ranked";
+    els.targetClosenessValue.textContent = `${formatPercent(closeness)} (${rankText})`;
+    els.targetClosenessMeter.style.width = `${Math.round(closeness * 100)}%`;
+    els.targetClosenessMeter.classList.toggle("on-target", correct || closeness >= 0.8);
+    els.targetClosenessMeter.classList.toggle("close", !correct && closeness >= 0.35 && closeness < 0.8);
+
+    els.gameTopPredictions.innerHTML = "";
+    const renderedLabels = new Set();
+    for (const item of feedback.topPredictions.slice(0, 3)) {
+        renderedLabels.add(item.label);
+        const chip = document.createElement("span");
+        chip.className = `prediction-chip ${item.label === target ? "target" : ""}`;
+        chip.textContent = `${item.label} ${formatPercent(item.confidence || 0)}`;
+        els.gameTopPredictions.appendChild(chip);
+    }
+    if (!renderedLabels.has(target)) {
+        const chip = document.createElement("span");
+        chip.className = "prediction-chip target";
+        chip.textContent = `${target} ${formatPercent(feedback.targetConfidence)}`;
+        els.gameTopPredictions.appendChild(chip);
+    }
+}
+
+function renderHistory() {
+    els.historyList.innerHTML = "";
+    for (const item of state.game.history.slice(-8).reverse()) {
+        const row = document.createElement("div");
+        row.className = `history-item ${item.correct ? "correct" : "wrong"}`;
+        const target = document.createElement("strong");
+        const guess = document.createElement("span");
+        const time = document.createElement("span");
+        target.textContent = item.target;
+        guess.textContent = `${item.predicted} | ${formatPercent(item.closeness || 0)}`;
+        time.textContent = item.time ? `${item.time.toFixed(1)}s` : "--";
+        row.append(target, guess, time);
+        els.historyList.appendChild(row);
+    }
+}
+
+function startGame() {
+    const game = state.game;
+    game.active = true;
+    game.targets = buildTargets(els.gameMode.value, Number(els.roundCount.value));
+    game.index = 0;
+    game.score = 0;
+    game.correct = 0;
+    game.attempts = 0;
+    game.streak = 0;
+    game.bestTime = null;
+    game.history = [];
+    game.roundLocked = false;
+    game.lastHandledLetter = "";
+    game.lastHandledAt = 0;
+    game.gameStartedAt = performance.now();
+    game.roundStartedAt = performance.now();
+    els.lastTryValue.textContent = "--";
+    resetRecognitionBuffer();
+    resetGuessFeedback();
+    setGameResult("Sign the target letter.");
+    renderHistory();
+    updateGameUi();
+}
+
+function finishGame(reason = "complete") {
+    if (!state.game.active) return;
+    state.game.active = false;
+    state.game.roundLocked = false;
+    resetRecognitionBuffer();
+    resetGuessFeedback();
+    setGameResult(`Finished: ${state.game.correct}/${state.game.attempts} correct, score ${state.game.score}.`);
+    updateGameUi();
+    if (reason === "complete") {
+        els.lastTryValue.textContent = "Done";
+    }
+}
+
+function advanceRound() {
+    if (!state.game.active) return;
+    state.game.index += 1;
+    if (state.game.index >= state.game.targets.length) {
+        finishGame("complete");
+        return;
+    }
+    state.game.roundLocked = false;
+    state.game.roundStartedAt = performance.now();
+    els.lastTryValue.textContent = "--";
+    resetRecognitionBuffer();
+    resetGuessFeedback();
+    setGameResult("Next letter.");
+    updateGameUi();
+}
+
+function handleGameLetter(predicted, result) {
+    const game = state.game;
+    if (!game.active || game.roundLocked || !predicted) return;
+
+    const now = performance.now();
+    if (game.lastHandledLetter === predicted && now - game.lastHandledAt < 900) return;
+    game.lastHandledLetter = predicted;
+    game.lastHandledAt = now;
+
+    const target = currentTarget();
+    const elapsed = (now - game.roundStartedAt) / 1000;
+    const correct = predicted === target;
+    const feedback = buildGuessFeedback(target, predicted, result);
+    game.attempts += 1;
+    els.lastTryValue.textContent = `${predicted} (${Math.round((result.confidence || 0) * 100)}%)`;
+    updateGuessFeedback(target, feedback, correct);
+
+    if (correct) {
+        game.correct += 1;
+        game.streak += 1;
+        const speedBonus = Math.max(0, Math.round(60 - elapsed * 12));
+        const streakBonus = Math.min(80, Math.max(0, (game.streak - 1) * 10));
+        game.score += 100 + speedBonus + streakBonus;
+        game.bestTime = game.bestTime === null ? elapsed : Math.min(game.bestTime, elapsed);
+        game.roundLocked = true;
+        setGameResult(`Correct: ${target} in ${elapsed.toFixed(1)}s.`, "correct");
+        window.setTimeout(advanceRound, 850);
+    } else {
+        game.streak = 0;
+        game.score = Math.max(0, game.score - 15);
+        setGameResult(`Try again: expected ${target}, saw ${predicted}.`, "wrong");
+    }
+
+    game.history.push({
+        target,
+        predicted,
+        correct,
+        time: elapsed,
+        confidence: result.confidence || 0,
+        closeness: feedback.targetConfidence,
+    });
+    renderHistory();
+    updateGameUi();
+}
+
+function retryRound() {
+    if (!state.game.active) return;
+    state.game.roundStartedAt = performance.now();
+    state.game.roundLocked = false;
+    els.lastTryValue.textContent = "--";
+    resetRecognitionBuffer();
+    resetGuessFeedback();
+    setGameResult("Retry current letter.");
+    updateGameUi();
+}
+
+function skipRound() {
+    const game = state.game;
+    if (!game.active) return;
+    game.streak = 0;
+    game.attempts += 1;
+    game.history.push({
+        target: currentTarget(),
+        predicted: "Skipped",
+        correct: false,
+        time: 0,
+        confidence: 0,
+        closeness: 0,
+    });
+    renderHistory();
+    advanceRound();
 }
 
 function flattenMirroredLandmarks(landmarks) {
@@ -339,6 +697,11 @@ function flattenMirroredLandmarks(landmarks) {
 }
 
 function modeHint() {
+    if (state.appMode === "game" && state.game.active) {
+        const target = currentTarget();
+        if (els.gameMode.value === "motion" || MOTION_SET.includes(target)) return "motion";
+        return "static";
+    }
     if (state.normalizedFrames.length < 2) return "auto";
     const recent = state.normalizedFrames.slice(-12);
     const deltas = [];

@@ -40,34 +40,130 @@
             </button>
 
             <div class="text-panel-body" id="text-panel-body">
-                <div class="text-header">
-                    <div>
-                        <div class="label">Recognized Text</div>
-                        <div id="signal-status" class="status-text">No hand detected.</div>
-                    </div>
-                    <button id="btn-guide" class="soft-btn" type="button">Guide</button>
-                </div>
-                <textarea id="output-text" placeholder="Stable letters appear here."></textarea>
-
-                <div class="suggestion-row" id="word-suggestions">
-                    <span class="hint">Word suggestions appear here.</span>
+                <div class="mode-tabs" role="tablist" aria-label="App mode">
+                    <button id="translator-tab" class="mode-tab active" type="button">Translator</button>
+                    <button id="game-tab" class="mode-tab" type="button">Sign Sprint</button>
                 </div>
 
-                <div class="action-grid">
-                    <button id="btn-space" type="button">Space</button>
-                    <button id="btn-backspace" type="button">Back</button>
-                    <button id="btn-sentence" type="button">Check</button>
-                    <button id="btn-clear" class="danger-btn" type="button">Clear</button>
+                <div id="translator-view" class="mode-view active">
+                    <div class="text-header">
+                        <div>
+                            <div class="label">Recognized Text</div>
+                            <div id="signal-status" class="status-text">No hand detected.</div>
+                        </div>
+                        <button id="btn-guide" class="soft-btn" type="button">Guide</button>
+                    </div>
+                    <textarea id="output-text" placeholder="Stable letters appear here."></textarea>
+
+                    <div class="suggestion-row" id="word-suggestions">
+                        <span class="hint">Word suggestions appear here.</span>
+                    </div>
+
+                    <div class="action-grid">
+                        <button id="btn-space" type="button">Space</button>
+                        <button id="btn-backspace" type="button">Back</button>
+                        <button id="btn-sentence" type="button">Check</button>
+                        <button id="btn-clear" class="danger-btn" type="button">Clear</button>
+                    </div>
+
+                    <div class="sentence-card">
+                        <div class="row-title">
+                            <span>Sentence Assist</span>
+                            <button id="btn-apply-safe" class="soft-btn" type="button">Apply Safe</button>
+                        </div>
+                        <div id="sentence-suggestions" class="sentence-list">
+                            <span class="hint">Check a phrase when it is ready.</span>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="sentence-card">
-                    <div class="row-title">
-                        <span>Sentence Assist</span>
-                        <button id="btn-apply-safe" class="soft-btn" type="button">Apply Safe</button>
+                <div id="game-view" class="mode-view">
+                    <div class="game-controls">
+                        <select id="game-mode" aria-label="Game mode">
+                            <option value="sprint">Classic Sprint</option>
+                            <option value="weak">Weak Pairs</option>
+                            <option value="motion">J/Z Motion</option>
+                            <option value="alphabet">A-Z Run</option>
+                        </select>
+                        <select id="round-count" aria-label="Round count">
+                            <option value="10">10 rounds</option>
+                            <option value="20">20 rounds</option>
+                            <option value="26">26 rounds</option>
+                        </select>
+                        <button id="btn-start-game" type="button">Start</button>
                     </div>
-                    <div id="sentence-suggestions" class="sentence-list">
-                        <span class="hint">Check a phrase when it is ready.</span>
+
+                    <div class="target-card">
+                        <div id="target-letter" class="target-letter">--</div>
+                        <div class="target-meta">
+                            <div class="round-line">
+                                <span>Round</span>
+                                <strong id="round-value">0/0</strong>
+                            </div>
+                            <div class="round-line">
+                                <span>Timer</span>
+                                <strong id="timer-value">0.0s</strong>
+                            </div>
+                            <div class="round-line">
+                                <span>Mode</span>
+                                <strong id="mode-value">Idle</strong>
+                            </div>
+                            <div class="round-line">
+                                <span>Last Try</span>
+                                <strong id="last-try-value">--</strong>
+                            </div>
+                        </div>
                     </div>
+
+                    <div class="game-stats">
+                        <div class="stat-card">
+                            <span>Score</span>
+                            <strong id="score-value">0</strong>
+                        </div>
+                        <div class="stat-card">
+                            <span>Correct</span>
+                            <strong id="correct-value">0</strong>
+                        </div>
+                        <div class="stat-card">
+                            <span>Accuracy</span>
+                            <strong id="accuracy-value">--</strong>
+                        </div>
+                        <div class="stat-card">
+                            <span>Streak</span>
+                            <strong id="streak-value">0</strong>
+                        </div>
+                        <div class="stat-card">
+                            <span>Attempts</span>
+                            <strong id="attempts-value">0</strong>
+                        </div>
+                        <div class="stat-card">
+                            <span>Best</span>
+                            <strong id="best-time-value">--</strong>
+                        </div>
+                    </div>
+
+                    <div class="guess-card">
+                        <div class="round-line">
+                            <span>Closeness</span>
+                            <strong id="target-closeness-value">--</strong>
+                        </div>
+                        <div class="distance-meter" aria-hidden="true">
+                            <div id="target-closeness-meter" class="distance-meter-fill"></div>
+                        </div>
+                        <div id="game-top-predictions" class="top-predictions">
+                            Top guesses appear after each attempt.
+                        </div>
+                    </div>
+
+                    <div id="game-result" class="result-strip">Press Start to begin.</div>
+
+                    <div class="game-controls">
+                        <button id="btn-skip" class="soft-btn" type="button">Skip</button>
+                        <button id="btn-retry" class="soft-btn" type="button">Retry</button>
+                        <button id="btn-end-game" class="danger-btn" type="button">End</button>
+                    </div>
+
+                    <div id="history-list" class="history-list"></div>
                 </div>
             </div>
         </section>
