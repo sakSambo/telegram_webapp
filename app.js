@@ -128,17 +128,9 @@ function wireControls() {
         els.settingsPanel.classList.add("hidden");
     });
     document.getElementById("btn-save-api").addEventListener("click", () => {
-        const nextApiBase = normalizeApiBase(els.apiBaseInput.value);
-        if (nextApiBase === null) {
-            setStatus("Use an HTTPS backend URL without username, query, or hash.");
-            return;
-        }
-        state.apiBase = nextApiBase;
-        els.apiBaseInput.value = state.apiBase;
+        state.apiBase = els.apiBaseInput.value.trim().replace(/\/$/, "");
         localStorage.setItem(API_BASE_KEY, state.apiBase);
-        setStatus(shouldAttachTelegramInitData(state.apiBase)
-            ? "Saved trusted backend URL."
-            : "Saved backend URL. Telegram auth header disabled for this origin.");
+        setStatus("Saved backend URL.");
     });
     document.getElementById("btn-test-api").addEventListener("click", testApi);
 
@@ -911,70 +903,18 @@ function resizeCanvasToVideo() {
 }
 
 function loadApiBase() {
-    const stored = localStorage.getItem(API_BASE_KEY);
-    const normalized = normalizeApiBase(stored || window.ASL_API_BASE || "");
-    if (normalized === null) {
-        if (stored) localStorage.removeItem(API_BASE_KEY);
-        return "";
-    }
-    return normalized;
+    return (localStorage.getItem(API_BASE_KEY) || window.ASL_API_BASE || "").replace(/\/$/, "");
 }
 
 function apiUrl(path) {
-    return state.apiBase ? `${state.apiBase}${path}` : path;
+    return `${state.apiBase}${path}`;
 }
 
-function telegramHeaders(method = "POST", targetApiBase = state.apiBase) {
+function telegramHeaders(method = "POST") {
     const headers = method === "GET" ? {} : { "Content-Type": "application/json" };
     const initData = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData;
-    if (initData && shouldAttachTelegramInitData(targetApiBase)) {
-        headers["X-Telegram-Init-Data"] = initData;
-    }
+    if (initData) headers["X-Telegram-Init-Data"] = initData;
     return headers;
-}
-
-function normalizeApiBase(value) {
-    const trimmed = String(value || "").trim();
-    if (!trimmed) return "";
-
-    let url;
-    try {
-        url = new URL(trimmed);
-    } catch (error) {
-        return null;
-    }
-
-    if (url.username || url.password || url.search || url.hash) return null;
-    if (url.protocol !== "https:" && !(url.protocol === "http:" && isLocalApiUrl(url))) return null;
-
-    const path = url.pathname.replace(/\/+$/, "");
-    return `${url.origin}${path === "/" ? "" : path}`;
-}
-
-function isLocalApiUrl(url) {
-    return ["localhost", "127.0.0.1", "::1", "[::1]"].includes(url.hostname);
-}
-
-function trustedApiOrigins() {
-    const origins = new Set([window.location.origin]);
-    const configuredBase = normalizeApiBase(window.ASL_API_BASE || "");
-    if (configuredBase) origins.add(new URL(configuredBase).origin);
-
-    const configuredOrigins = Array.isArray(window.ASL_TRUSTED_API_ORIGINS)
-        ? window.ASL_TRUSTED_API_ORIGINS
-        : [];
-    for (const originValue of configuredOrigins) {
-        const normalized = normalizeApiBase(originValue);
-        if (normalized) origins.add(new URL(normalized).origin);
-    }
-    return origins;
-}
-
-function shouldAttachTelegramInitData(targetApiBase) {
-    if (!targetApiBase) return true;
-    const normalized = normalizeApiBase(targetApiBase);
-    if (!normalized) return false;
-    return trustedApiOrigins().has(new URL(normalized).origin);
 }
 
 function setStatus(text) {

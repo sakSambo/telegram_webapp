@@ -4,11 +4,8 @@
 [[headers]]
   for = "/*"
   [headers.values]
-    Content-Security-Policy = "default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' https://telegram.org https://cdn.jsdelivr.net 'wasm-unsafe-eval'; script-src-elem 'self' https://telegram.org https://cdn.jsdelivr.net; connect-src 'self' https: http://localhost:* http://127.0.0.1:*; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; worker-src 'self' blob: https://cdn.jsdelivr.net; child-src 'self' blob:; form-action 'none'"
     Permissions-Policy = "camera=(self), microphone=()"
-    Referrer-Policy = "no-referrer"
     X-Content-Type-Options = "nosniff"
-    X-Permitted-Cross-Domain-Policies = "none"
 
 [[headers]]
   for = "/models/*"
