@@ -1,5 +1,5 @@
 /*
-  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self' https://web.telegram.org https://*.telegram.org; script-src 'self' https://telegram.org https://cdn.jsdelivr.net 'wasm-unsafe-eval'; script-src-elem 'self' https://telegram.org https://cdn.jsdelivr.net; connect-src 'self' https:; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; child-src 'self' blob:; form-action 'none'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' https://telegram.org https://cdn.jsdelivr.net 'wasm-unsafe-eval'; script-src-elem 'self' https://telegram.org https://cdn.jsdelivr.net; connect-src 'self' https:; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; worker-src 'self' blob: https://cdn.jsdelivr.net; child-src 'self' blob:; form-action 'none'; upgrade-insecure-requests
   Permissions-Policy: camera=(self), microphone=()
   Referrer-Policy: no-referrer
   Strict-Transport-Security: max-age=31536000; includeSubDomains
