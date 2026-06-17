@@ -11,6 +11,7 @@ const HAND_CONNECTIONS = [
 ];
 
 const API_BASE_KEY = "aslTelegramApiBase";
+const TEXT_PANEL_COLLAPSED_KEY = "aslTextPanelCollapsed";
 const MAX_FRAMES = 30;
 const MIN_FRAMES = 8;
 const PREDICT_INTERVAL_MS = 260;
@@ -23,6 +24,10 @@ const els = {
     signal: document.getElementById("signal-status"),
     prediction: document.getElementById("current-prediction"),
     confidence: document.getElementById("confidence-pill"),
+    textPanel: document.getElementById("text-panel"),
+    textPanelToggle: document.getElementById("btn-text-panel-toggle"),
+    compactOutput: document.getElementById("compact-output-text"),
+    textPanelToggleAction: document.getElementById("text-panel-toggle-action"),
     output: document.getElementById("output-text"),
     wordSuggestions: document.getElementById("word-suggestions"),
     sentenceSuggestions: document.getElementById("sentence-suggestions"),
@@ -65,6 +70,12 @@ function bootstrapTelegram() {
 
 function wireControls() {
     els.apiBaseInput.value = state.apiBase;
+    setTextPanelCollapsed(shouldStartTextPanelCollapsed(), false);
+    updateCompactOutput();
+
+    els.textPanelToggle.addEventListener("click", () => {
+        setTextPanelCollapsed(!isTextPanelCollapsed(), true);
+    });
 
     document.getElementById("btn-settings").addEventListener("click", () => {
         els.settingsPanel.classList.remove("hidden");
@@ -91,18 +102,21 @@ function wireControls() {
     });
     document.getElementById("btn-backspace").addEventListener("click", () => {
         els.output.value = els.output.value.slice(0, -1);
+        updateCompactOutput();
         scheduleWordAssist();
         state.latestSentenceAssist = null;
     });
     document.getElementById("btn-clear").addEventListener("click", () => {
         els.output.value = "";
         state.lastCommitted = "";
+        updateCompactOutput();
         clearWordSuggestions("Word suggestions appear here.");
         clearSentenceSuggestions("Check a phrase when it is ready.");
     });
     document.getElementById("btn-sentence").addEventListener("click", fetchSentenceAssist);
     document.getElementById("btn-apply-safe").addEventListener("click", applySafeSentenceFixes);
     els.output.addEventListener("input", () => {
+        updateCompactOutput();
         scheduleWordAssist();
         state.latestSentenceAssist = null;
     });
@@ -266,9 +280,43 @@ function handlePrediction(result) {
 
 function appendText(value) {
     els.output.value += value;
-    els.output.focus();
+    updateCompactOutput();
+    if (!isTextPanelCollapsed()) {
+        els.output.focus();
+    }
     scheduleWordAssist();
     state.latestSentenceAssist = null;
+}
+
+function shouldStartTextPanelCollapsed() {
+    const stored = localStorage.getItem(TEXT_PANEL_COLLAPSED_KEY);
+    if (stored !== null) return stored === "true";
+    return isTextPanelCollapsible();
+}
+
+function isTextPanelCollapsed() {
+    return isTextPanelCollapsible() && els.textPanel.classList.contains("is-collapsed");
+}
+
+function isTextPanelCollapsible() {
+    return window.matchMedia("(max-width: 839px)").matches;
+}
+
+function setTextPanelCollapsed(collapsed, persist) {
+    els.textPanel.classList.toggle("is-collapsed", collapsed);
+    els.textPanelToggle.setAttribute("aria-expanded", String(!collapsed));
+    els.textPanelToggleAction.textContent = collapsed ? "Open" : "Hide";
+    if (collapsed && els.textPanel.contains(document.activeElement)) {
+        document.activeElement.blur();
+    }
+    if (persist) {
+        localStorage.setItem(TEXT_PANEL_COLLAPSED_KEY, String(collapsed));
+    }
+}
+
+function updateCompactOutput() {
+    const value = els.output.value.replace(/\s+/g, " ").trim();
+    els.compactOutput.textContent = value || "Stable letters appear here.";
 }
 
 function flattenMirroredLandmarks(landmarks) {
@@ -368,6 +416,7 @@ function applyWordSuggestion(data, suggestion) {
         return;
     }
     els.output.value = `${els.output.value.slice(0, data.start)}${suggestion.text}${els.output.value.slice(data.end)}`;
+    updateCompactOutput();
     scheduleWordAssist();
     state.latestSentenceAssist = null;
 }
@@ -439,6 +488,7 @@ async function applySafeSentenceFixes() {
         return;
     }
     els.output.value = state.latestSentenceAssist.safe_text;
+    updateCompactOutput();
     scheduleWordAssist();
     fetchSentenceAssist();
 }
@@ -454,6 +504,7 @@ function applySentenceSuggestion(suggestion) {
         }
         els.output.value = `${els.output.value.slice(0, suggestion.start)}${suggestion.replacement || ""}${els.output.value.slice(suggestion.end)}`;
     }
+    updateCompactOutput();
     scheduleWordAssist();
     fetchSentenceAssist();
 }

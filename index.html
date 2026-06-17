@@ -30,34 +30,44 @@
             </div>
         </section>
 
-        <section class="text-panel">
-            <div class="text-header">
-                <div>
-                    <div class="label">Recognized Text</div>
-                    <div id="signal-status" class="status-text">No hand detected.</div>
+        <section class="text-panel is-collapsed" id="text-panel">
+            <button id="btn-text-panel-toggle" class="text-panel-toggle" type="button" aria-expanded="false" aria-controls="text-panel-body">
+                <span>
+                    <span class="label">Recognized Text</span>
+                    <span id="compact-output-text" class="compact-output-text">Stable letters appear here.</span>
+                </span>
+                <span id="text-panel-toggle-action" class="toggle-action">Open</span>
+            </button>
+
+            <div class="text-panel-body" id="text-panel-body">
+                <div class="text-header">
+                    <div>
+                        <div class="label">Recognized Text</div>
+                        <div id="signal-status" class="status-text">No hand detected.</div>
+                    </div>
+                    <button id="btn-guide" class="soft-btn" type="button">Guide</button>
                 </div>
-                <button id="btn-guide" class="soft-btn" type="button">Guide</button>
-            </div>
-            <textarea id="output-text" placeholder="Stable letters appear here."></textarea>
+                <textarea id="output-text" placeholder="Stable letters appear here."></textarea>
 
-            <div class="suggestion-row" id="word-suggestions">
-                <span class="hint">Word suggestions appear here.</span>
-            </div>
-
-            <div class="action-grid">
-                <button id="btn-space" type="button">Space</button>
-                <button id="btn-backspace" type="button">Back</button>
-                <button id="btn-sentence" type="button">Check</button>
-                <button id="btn-clear" class="danger-btn" type="button">Clear</button>
-            </div>
-
-            <div class="sentence-card">
-                <div class="row-title">
-                    <span>Sentence Assist</span>
-                    <button id="btn-apply-safe" class="soft-btn" type="button">Apply Safe</button>
+                <div class="suggestion-row" id="word-suggestions">
+                    <span class="hint">Word suggestions appear here.</span>
                 </div>
-                <div id="sentence-suggestions" class="sentence-list">
-                    <span class="hint">Check a phrase when it is ready.</span>
+
+                <div class="action-grid">
+                    <button id="btn-space" type="button">Space</button>
+                    <button id="btn-backspace" type="button">Back</button>
+                    <button id="btn-sentence" type="button">Check</button>
+                    <button id="btn-clear" class="danger-btn" type="button">Clear</button>
+                </div>
+
+                <div class="sentence-card">
+                    <div class="row-title">
+                        <span>Sentence Assist</span>
+                        <button id="btn-apply-safe" class="soft-btn" type="button">Apply Safe</button>
+                    </div>
+                    <div id="sentence-suggestions" class="sentence-list">
+                        <span class="hint">Check a phrase when it is ready.</span>
+                    </div>
                 </div>
             </div>
         </section>
