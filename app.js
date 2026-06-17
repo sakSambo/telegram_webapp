@@ -146,12 +146,23 @@ async function initLocalPredictor() {
 }
 
 async function initCamera() {
+    const isPhoneWidth = window.matchMedia("(max-width: 639px)").matches;
+    const viewportAspect = window.innerWidth && window.innerHeight
+        ? window.innerWidth / window.innerHeight
+        : 9 / 16;
+    const phoneAspect = Math.min(Math.max(viewportAspect, 0.46), 0.75);
+    const videoConstraints = {
+        facingMode: "user",
+        width: { ideal: isPhoneWidth ? 720 : 1280 },
+        height: { ideal: isPhoneWidth ? 1280 : 720 },
+    };
+
+    if (isPhoneWidth) {
+        videoConstraints.aspectRatio = { ideal: phoneAspect };
+    }
+
     const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-            facingMode: "user",
-            width: { ideal: 720 },
-            height: { ideal: 960 },
-        },
+        video: videoConstraints,
         audio: false,
     });
     els.video.srcObject = stream;
