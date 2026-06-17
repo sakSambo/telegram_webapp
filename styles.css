@@ -85,7 +85,7 @@ button {
 }
 
 .top-overlay {
-    top: calc(10px + var(--safe-top));
+    top: calc(68px + var(--safe-top));
 }
 
 .prediction-overlay {
@@ -362,6 +362,10 @@ input[type="checkbox"] {
     #camera-video,
     #overlay-canvas {
         object-fit: contain;
+    }
+
+    .top-overlay {
+        top: calc(10px + var(--safe-top));
     }
 }
 
