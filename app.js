@@ -27,6 +27,8 @@ const els = {
     signal: document.getElementById("signal-status"),
     prediction: document.getElementById("current-prediction"),
     confidence: document.getElementById("confidence-pill"),
+    cameraStartPanel: document.getElementById("camera-start-panel"),
+    startCameraButton: document.getElementById("btn-start-camera"),
     textPanel: document.getElementById("text-panel"),
     textPanelToggle: document.getElementById("btn-text-panel-toggle"),
     compactOutput: document.getElementById("compact-output-text"),
@@ -65,6 +67,7 @@ const els = {
 
 const state = {
     appMode: "translator",
+    appStarted: false,
     apiBase: loadApiBase(),
     handLandmarker: null,
     frames: [],
@@ -100,7 +103,7 @@ const ctx = els.canvas.getContext("2d");
 
 bootstrapTelegram();
 wireControls();
-startApp();
+startWhenAppropriate();
 
 function bootstrapTelegram() {
     const telegram = window.Telegram && window.Telegram.WebApp;
@@ -118,6 +121,7 @@ function wireControls() {
     els.textPanelToggle.addEventListener("click", () => {
         setTextPanelCollapsed(!isTextPanelCollapsed(), true);
     });
+    els.startCameraButton.addEventListener("click", startFromUserGesture);
     els.translatorTab.addEventListener("click", () => setAppMode("translator"));
     els.gameTab.addEventListener("click", () => setAppMode("game"));
 
@@ -176,15 +180,48 @@ function wireControls() {
 }
 
 async function startApp() {
+    if (state.appStarted) return true;
+    state.appStarted = true;
     try {
         await initCamera();
         await initHandLandmarker();
         await initLocalPredictor();
         setStatus(state.localPredictor ? `Local model ready (${state.localPredictor.provider}).` : "Camera ready. Set backend URL if prediction is unavailable.");
+        els.cameraStartPanel.classList.add("hidden");
         requestAnimationFrame(processFrame);
+        return true;
     } catch (error) {
+        state.appStarted = false;
         setStatus(error.message || "Unable to start camera.");
+        els.cameraStartPanel.classList.remove("hidden");
+        els.startCameraButton.disabled = false;
+        els.startCameraButton.textContent = "Retry Camera";
+        return false;
     }
+}
+
+function startWhenAppropriate() {
+    if (isTelegramMiniApp()) {
+        setStatus("Tap Start Camera to begin in Telegram.");
+        els.cameraStartPanel.classList.remove("hidden");
+        return;
+    }
+    els.cameraStartPanel.classList.add("hidden");
+    startApp();
+}
+
+async function startFromUserGesture() {
+    els.startCameraButton.disabled = true;
+    els.startCameraButton.textContent = "Starting...";
+    const started = await startApp();
+    if (!started) return;
+    els.startCameraButton.disabled = false;
+    els.startCameraButton.textContent = "Start Camera";
+}
+
+function isTelegramMiniApp() {
+    const telegram = window.Telegram && window.Telegram.WebApp;
+    return Boolean(telegram && telegram.initData);
 }
 
 async function initLocalPredictor() {
