@@ -1,6 +1,10 @@
-import { FilesetResolver, HandLandmarker } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18";
 import { createLocalPredictor } from "./local_model.js";
 import { frameDelta as landmarkFrameDelta, normalizeFrame as normalizeLandmarksFrame } from "./landmark_features.js";
+
+const TELEGRAM_SDK_URL = "https://telegram.org/js/telegram-web-app.js";
+const MEDIAPIPE_TASKS_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18";
+const MEDIAPIPE_WASM_ROOT = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm";
+const HAND_LANDMARKER_MODEL_URL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
 
 const HAND_CONNECTIONS = [
     [0, 1], [1, 2], [2, 3], [3, 4],
@@ -100,10 +104,17 @@ const state = {
 };
 
 const ctx = els.canvas.getContext("2d");
+let visionTasksPromise = null;
 
 bootstrapTelegram();
+loadTelegramSdk().then(bootstrapTelegram).catch(() => {});
 wireControls();
 startWhenAppropriate();
+
+function loadTelegramSdk() {
+    if (window.Telegram && window.Telegram.WebApp) return Promise.resolve();
+    return loadScript(TELEGRAM_SDK_URL, 3500);
+}
 
 function bootstrapTelegram() {
     const telegram = window.Telegram && window.Telegram.WebApp;
@@ -261,17 +272,23 @@ async function initCamera() {
 
 async function initHandLandmarker() {
     setStatus("Loading hand tracker...");
-    const vision = await FilesetResolver.forVisionTasks(
-        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm"
-    );
+    const { FilesetResolver, HandLandmarker } = await loadVisionTasks();
+    const vision = await FilesetResolver.forVisionTasks(MEDIAPIPE_WASM_ROOT);
     state.handLandmarker = await HandLandmarker.createFromOptions(vision, {
         baseOptions: {
-            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+            modelAssetPath: HAND_LANDMARKER_MODEL_URL,
             delegate: "GPU",
         },
         runningMode: "VIDEO",
         numHands: 1,
     });
+}
+
+async function loadVisionTasks() {
+    if (!visionTasksPromise) {
+        visionTasksPromise = import(MEDIAPIPE_TASKS_URL);
+    }
+    return visionTasksPromise;
 }
 
 async function processFrame(now) {
@@ -956,4 +973,33 @@ function telegramHeaders(method = "POST") {
 
 function setStatus(text) {
     els.connection.textContent = text;
+}
+
+function loadScript(url, timeoutMs = 8000) {
+    return new Promise((resolve, reject) => {
+        const existing = document.querySelector(`script[src="${url}"]`);
+        if (existing) {
+            existing.addEventListener("load", resolve, { once: true });
+            existing.addEventListener("error", reject, { once: true });
+            return;
+        }
+
+        const script = document.createElement("script");
+        const timeout = window.setTimeout(() => {
+            script.remove();
+            reject(new Error(`Timed out loading ${url}`));
+        }, timeoutMs);
+
+        script.src = url;
+        script.async = true;
+        script.onload = () => {
+            window.clearTimeout(timeout);
+            resolve();
+        };
+        script.onerror = () => {
+            window.clearTimeout(timeout);
+            reject(new Error(`Failed to load ${url}`));
+        };
+        document.head.appendChild(script);
+    });
 }

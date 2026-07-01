@@ -7,19 +7,18 @@ import {
 
 const MODEL_PATH = "./models/asl_lstm_improved_features.onnx";
 const LABELS_PATH = "./labels/asl_labels_improved_features.json";
+const ORT_SCRIPT_URL = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.all.min.js";
+const ORT_WASM_ROOT = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/";
 const NO_PREDICTION_LABEL = "NOTHING";
 const MOTION_LABELS = new Set(["J", "Z"]);
 const DEFAULT_MOBILE_THRESHOLD = 0.82;
 const DEFAULT_MARGIN_THRESHOLD = 0.04;
 
 export async function createLocalPredictor() {
-    const ort = window.ort;
-    if (!ort) {
-        throw new Error("ONNX Runtime Web was not loaded.");
-    }
+    const ort = await loadOnnxRuntime();
 
     if (ort.env && ort.env.wasm) {
-        ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/";
+        ort.env.wasm.wasmPaths = ORT_WASM_ROOT;
         // Single-threaded WASM avoids cross-origin isolation requirements in Telegram WebView.
         ort.env.wasm.numThreads = 1;
     }
@@ -46,6 +45,15 @@ export async function createLocalPredictor() {
     }
 
     throw lastError || new Error("Could not initialize local ASL model.");
+}
+
+async function loadOnnxRuntime() {
+    if (window.ort) return window.ort;
+    await loadScript(ORT_SCRIPT_URL, 10000);
+    if (!window.ort) {
+        throw new Error("ONNX Runtime Web loaded without exposing window.ort.");
+    }
+    return window.ort;
 }
 
 class LocalPredictor {
@@ -202,4 +210,33 @@ function difference(left, right) {
 
 function round4(value) {
     return Math.round(value * 10000) / 10000;
+}
+
+function loadScript(url, timeoutMs = 8000) {
+    return new Promise((resolve, reject) => {
+        const existing = document.querySelector(`script[src="${url}"]`);
+        if (existing) {
+            existing.addEventListener("load", resolve, { once: true });
+            existing.addEventListener("error", reject, { once: true });
+            return;
+        }
+
+        const script = document.createElement("script");
+        const timeout = window.setTimeout(() => {
+            script.remove();
+            reject(new Error(`Timed out loading ${url}`));
+        }, timeoutMs);
+
+        script.src = url;
+        script.async = true;
+        script.onload = () => {
+            window.clearTimeout(timeout);
+            resolve();
+        };
+        script.onerror = () => {
+            window.clearTimeout(timeout);
+            reject(new Error(`Failed to load ${url}`));
+        };
+        document.head.appendChild(script);
+    });
 }
